@@ -1,0 +1,9 @@
+services:
+  bongo-bot:
+    build: .
+    container_name: bongo_baileys_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./baileys_auth_info:/app/baileys_auth_info
