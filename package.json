@@ -5,9 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "build": "echo 'No build required'",
+    "start": "npx tsx src/index.ts"
+  },
+
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
