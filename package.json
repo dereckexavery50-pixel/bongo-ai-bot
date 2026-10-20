@@ -1,26 +1,24 @@
 {
   "name": "bongo-baileys-connector",
   "version": "1.0.0",
-  "description": "Autonomous WhatsApp Baileys connector for Bongo AI Bot with natural Tanzanian Swahili group conversation",
+  "description": "WhatsApp connector for Bongo AI Bot",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "echo 'No build required'",
-    "start": "npx tsx src/index.ts"
-  },
-
+    "build": "echo No build required",
+    "start": "tsx src/index.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@whiskeysockets/baileys": "^6.7.9",
     "dotenv": "^16.4.5",
     "pino": "^9.6.0",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
     "@types/qrcode-terminal": "^0.12.2",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }
