@@ -1,3 +1,39 @@
+import makeWASocket, { DisconnectReason, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { Boom } from "@hapi/boom";
+import pino from "pino";
+import { config } from "./config";
+import { memoryManager } from "./memory";
+import { cooldownTracker } from "./cooldown";
+import { generateBongoReply } from "./gemini";
+
+async function startBongoBaileysBot() {
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
+
+  const sock = makeWASocket({
+    auth: state,
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: true,
+  });
+
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === "close") {
+      const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log("Connection closed due to ", lastDisconnect?.error, ", reconnecting ", shouldReconnect);
+      if (shouldReconnect) {
+        startBongoBaileysBot();
+      }
+    } else if (connection === "open") {
+      console.log("✅ BongoBot connected successfully to WhatsApp!");
+      
+      // Hapa ndipo hiyo sehemu yako inapoanzia:
+      try {
+        const groups = await sock.groupFetchAllParticipating();
+        console.log("\n------------------------------------------");
+        console.log("📋 FETCHED CONNECTED GROUPS:");
+        for (const jid in groups) {
+          const groupData = groups[jid];
+          const isAllowed = config.allowedGroupJids.includes(jid);
           console.log(`📋 Name: "${groupData.subject}" | JID: "${jid}" | [${isAllowed ? "✅ ALLOWLISTED" : "⛔ IGNORED"}]`);
         }
         console.log("------------------------------------------\n");
@@ -18,18 +54,15 @@
       const chatJid = m.key.remoteJid;
       if (!chatJid) continue;
 
-      // 1. RULE: Only process group messages
       const isGroup = chatJid.endsWith("@g.us");
       if (!isGroup) continue;
 
-      // 2. CRITICAL RULE: AVOID REPLYING TO ITS OWN MESSAGES
       if (m.key.fromMe) continue;
 
-      // 3. CRITICAL RULE: ONLY RESPOND IN ALLOWLISTED TEST GROUP(S)
       const isAllowlisted = config.allowedGroupJids.includes(chatJid);
       if (!isAllowlisted) continue;
 
-      const text = extractMessageText(m);
+      const text = m.message?.conversation || m.message?.extendedTextMessage?.text;
       if (!text) continue;
 
       const senderJid = m.key.participant || chatJid;
@@ -37,7 +70,6 @@
 
       console.log(`📩 [Group: ${chatJid.slice(0, 15)}...] ${senderName}: "${text}"`);
 
-      // 4. RULE: Store message in sliding-window context memory
       memoryManager.addMessage(chatJid, {
         id: m.key.id || String(Date.now()),
         senderJid,
@@ -47,31 +79,27 @@
         isBot: false,
       });
 
-      // 5. RULE: Check cooldown to prevent group spamming
       if (cooldownTracker.isCoolingDown(chatJid)) {
         const remaining = cooldownTracker.getRemainingSeconds(chatJid);
         console.log(`⏳ Cooldown active (${remaining}s remaining in this group). Bot stays silent.`);
         continue;
       }
 
-      // 6. RULE: Determine if bot should reply naturally without needing @mention
       const shouldReply = config.botMode === "natural" 
-        ? shouldReplyNaturally(text, config.botName) 
+        ? text.toLowerCase().includes(config.botName.toLowerCase()) 
         : text.includes(config.botName);
 
       if (!shouldReply) {
-        console.log(`💤 Message did not trigger natural response heuristic.`);
+        console.log(`💤 Message did not trigger response heuristic.`);
         continue;
       }
 
       console.log(`🤖 Trigger activated! Generating contextual Bongo Swahili reply...`);
 
-      // 7. Send "typing..." presence to look natural
       try {
         await sock.sendPresenceUpdate("composing", chatJid);
       } catch {}
 
-      // 8. Generate reply with Gemini using recent context
       try {
         const recentContext = memoryManager.formatContextForGemini(chatJid);
 
@@ -83,14 +111,11 @@
 
         if (!replyText) continue;
 
-        // Human-like delay (1.5 seconds)
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // 9. Send response back to the WhatsApp group, quoting user message
         await sock.sendMessage(chatJid, { text: replyText }, { quoted: m });
         console.log(`✅ Sent reply: "${replyText}"`);
 
-        // 10. Record bot's reply in memory and update cooldown timer
         memoryManager.addMessage(chatJid, {
           id: String(Date.now()),
           senderJid: "bot",
