@@ -1,0 +1,37 @@
+export class CooldownTracker {
+  private lastReplyTimes: Map<string, number> = new Map();
+  private cooldownDurationMs: number;
+
+  constructor(cooldownSeconds: number = 25) {
+    this.cooldownDurationMs = cooldownSeconds * 1000;
+  }
+
+  /** * Checks whether the group is currently under active cooldown. * If true, the bot should remain silent to prevent chat flooding. */
+  public isCoolingDown(groupJid: string): boolean {
+    const lastReply = this.lastReplyTimes.get(groupJid);
+    if (!lastReply) return false;
+
+    const elapsed = Date.now() - lastReply;
+    return elapsed < this.cooldownDurationMs;
+  }
+
+  /** * Returns remaining cooldown in seconds for logging or UI feedback. */
+  public getRemainingSeconds(groupJid: string): number {
+    const lastReply = this.lastReplyTimes.get(groupJid);
+    if (!lastReply) return 0;
+
+    const elapsed = Date.now() - lastReply;
+    const remaining = Math.max(0, this.cooldownDurationMs - elapsed);
+    return Math.ceil(remaining / 1000);
+  }
+
+  /** * Call this right after the bot sends a reply to start the cooldown timer. */
+  public recordReply(groupJid: string): void {
+    this.lastReplyTimes.set(groupJid, Date.now());
+  }
+
+  /** * Reset cooldown manually for a group. */
+  public resetCooldown(groupJid: string): void {
+    this.lastReplyTimes.delete(groupJid);
+  }
+}
