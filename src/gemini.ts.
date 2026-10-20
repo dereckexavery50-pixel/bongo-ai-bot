@@ -1,0 +1,59 @@
+import { GoogleGenAI } from "@google/genai";
+import { config } from "./config.js";
+
+// Initialize the Google Gen AI client with recommended user-agent header
+const ai = new GoogleGenAI({
+  apiKey: config.geminiApiKey,
+  httpOptions: {
+    headers: {
+      "User-Agent": "aistudio-build",
+    },
+  },
+});
+
+export interface GenerateReplyParams {
+  groupName?: string;
+  senderName: string;
+  currentMessage: string;
+  chatContext: string;
+}
+
+/** * Sends recent chat history and incoming message to Gemini to generate * an authentic, contextual Tanzanian Swahili response. */
+export async function generateBongoReply(params: GenerateReplyParams): Promise<string> {
+  const { groupName, senderName, currentMessage, chatContext } = params;
+
+  const prompt = `Hapa chini ni mazungumzo ya hivi karibuni kwenye kundi la WhatsApp "${groupName || "Kundi la Washkaji"}":
+
+--- MUKTADHA WA JUMBE ZILIZOPITA (RECENT CHAT CONTEXT) ---
+${chatContext}
+-----------------------------------------------------------
+
+Ujumbe mpya uliowasili sasa hivi kutoka kwa "${senderName}":
+"${currentMessage}"
+
+MAELEKEZO:
+1. Jibu kwa Kiswahili halisi cha Kitanzania (Bongo Swahili) chenye mtiririko asilia wa kijana/mshikaji wa Bongo.
+2. Unganisha jibu lako moja kwa moja na muktadha unaoendelea bila kurudia maneno kizamani.
+3. Jibu liwe fupi, lenye heshima au uchangamfu kulingana na mazungumzo (sentensi 1 hadi 3).
+4. Usianze na "BongoBot:" wala kujiita AI. Toa jibu lenyewe kama ujumbe wa WhatsApp.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: config.geminiModel,
+      contents: prompt,
+      config: {
+        systemInstruction: config.systemPrompt,
+        temperature: 0.85,
+        topP: 0.95,
+      },
+    });
+
+    const reply = response.text?.trim() || "";
+    // Clean up if model mistakenly prefixes with a bot handle
+    const cleanedReply = reply.replace(/^(BongoBot|Bot|Bongo AI):\s*/i, "");
+    return cleanedReply;
+  } catch (error) {
+    console.error("❌ Gemini API Generation Error:", error);
+    throw error;
+  }
+}
