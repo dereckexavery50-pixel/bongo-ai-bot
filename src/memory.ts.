@@ -1,0 +1,61 @@
+export interface GroupMessage {
+  id: string;
+  senderJid: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
+  isBot: boolean;
+}
+
+export class GroupMemoryManager {
+  private memory: Map<string, GroupMessage[]> = new Map();
+  private maxMessages: number;
+
+  constructor(maxMessages: number = 10) {
+    this.maxMessages = maxMessages;
+  }
+
+  /** * Adds a new incoming or outgoing message to the sliding window buffer for a group. */
+  public addMessage(groupJid: string, msg: GroupMessage): void {
+    if (!this.memory.has(groupJid)) {
+      this.memory.set(groupJid, []);
+    }
+
+    const messages = this.memory.get(groupJid)!;
+    messages.push(msg);
+
+    // Keep only the most recent N messages
+    if (messages.length > this.maxMessages) {
+      messages.shift();
+    }
+  }
+
+  /** * Retrieves the recent messages for a group. */
+  public getRecentMessages(groupJid: string): GroupMessage[] {
+    return this.memory.get(groupJid) || [];
+  }
+
+  /** * Formats the recent message history into a clean multi-line chat context string * ready to be ingested by Gemini. */
+  public formatContextForGemini(groupJid: string): string {
+    const messages = this.getRecentMessages(groupJid);
+    if (messages.length === 0) {
+      return "Hakuna jumbe zilizopita bado.";
+    }
+
+    return messages
+      .map((m) => {
+        const timeStr = new Date(m.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const author = m.isBot ? "BongoBot (Wewe)" : m.senderName;
+        return `[${timeStr}] ${author}: ${m.text}`;
+      })
+      .join("\n");
+  }
+
+  /** * Clears history for a group (e.g. on command or reset). */
+  public clearGroupHistory(groupJid: string): void {
+    this.memory.delete(groupJid);
+  }
+}
