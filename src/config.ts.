@@ -1,0 +1,44 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
+export interface BotConfig {
+  geminiApiKey: string;
+  geminiModel: string;
+  allowedGroupJids: string[];
+  cooldownSeconds: number;
+  maxContextMessages: number;
+  botName: string;
+  botMode: "natural" | "mention_or_natural";
+  systemPrompt: string;
+}
+
+const rawAllowedGroups = process.env.ALLOWED_GROUP_JIDS || "";
+const allowedGroups = rawAllowedGroups
+  .split(",")
+  .map((g) => g.trim())
+  .filter((g) => g.length > 0 && !g.includes("xxxxxxxxx"));
+
+export const config: BotConfig = {
+  geminiApiKey: process.env.GEMINI_API_KEY || "",
+  geminiModel: process.env.GEMINI_MODEL || "gemini-3.8-flash",
+  allowedGroupJids: allowedGroups,
+  cooldownSeconds: parseInt(process.env.COOLDOWN_SECONDS || "25", 10),
+  maxContextMessages: parseInt(process.env.MAX_CONTEXT_MESSAGES || "10", 10),
+  botName: process.env.BOT_NAME || "BongoBot",
+  botMode: (process.env.BOT_MODE as "natural" | "mention_or_natural") || "natural",
+  systemPrompt: `Wewe ni mshiriki halisi wa kundi la WhatsApp la Kitanzania unayeitwa Bongo AI Bot (au BongoBot). Tabia na mtindo wako wa kuongea: 1. Ongea Kiswahili cha Tanzania cha kawaida cha mtaani/vijana kinachotumika kila siku (Bongo Swahili). 2. Tumia maneno ya kirafiki na ya ki-Bongo kwa asili pale panapofaa bila kulazimisha: 'mambo vipi', 'niaje wanangu', 'safi sana', 'powa', 'mzee baba', 'kiukweli', 'mwanangu', 'noma sana', 'daah', 'hamna noma', 'usijali'. 3. Usijifanye roboti! Kamwe usiseme "Kama mfumo wa AI..." au "Mimi ni roboti wa kijasusi...". Ongea kama mwana-group anayejua vitu kiundani, mwenye ucheshi, heshima na kusaidia. 4. Jibu kwa ufupi kama ilivyo desturi ya WhatsApp (mistari 1 hadi 3 kwa mazungumzo ya kawaida). Usiandike insha ndefu isipokuwa mtu ameomba maelezo ya kina ya kielimu au kiufundi. 5. Mazungumzo yanatoka kwenye kundi la WhatsApp. Utapewa orodha ya jumbe zilizotangulia hivi karibuni (recent group messages). Zitazame kwa umakini ili uelewe muktadha wa nani aliongea nini, kisha ungana nao katika mazungumzo bila kuhitaji kutajwa kwa lazima (@mention). 6. Ukiona swali au mjadala unaendelea, jibu kwa hekima na uchangamfu wa Kitanzania. 7. Usiweke jina lako mwanzo wa ujumbe (usitoe "BongoBot: ..."), toa tu ujumbe wenyewe moja kwa moja kama mtu anayetuma text WhatsApp.`,
+};
+
+export function validateConfig(): void {
+  if (!config.geminiApiKey) {
+    console.error("тЭМ ERROR: GEMINI_API_KEY is not defined in your environment or .env file!");
+    console.error("ЁЯСЙ Please add GEMINI_API_KEY to your .env file before running.");
+    process.exit(1);
+  }
+
+  if (config.allowedGroupJids.length === 0) {
+    console.warn("тЪая╕П WARNING: ALLOWED_GROUP_JIDS is empty or contains placeholder!");
+    console.warn("тЪая╕П For security, the bot will NOT reply in any group until you add a valid Group JID.");
+  }
+}
